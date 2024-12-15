@@ -1,0 +1,16 @@
+# Example: fib(n)
+int n = 7;
+
+
+int a = 1;
+int b = 1;
+int c = 1;
+
+while n > 2 {
+    c = a + b;
+    a = b;
+    b = c;
+    n = n - 1;
+}
+
+print c;

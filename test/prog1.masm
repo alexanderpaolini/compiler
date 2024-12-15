@@ -1,0 +1,5 @@
+# Testing simple variable declarations
+int x = 1;
+int y = 2;
+print x;
+print y;

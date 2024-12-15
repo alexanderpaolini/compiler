@@ -1,0 +1,5 @@
+int x = 100;
+while (x) {
+    print x;
+    x = x - 2;
+}

@@ -1,0 +1,6 @@
+# Testing simple while loop
+int x = 3;
+while x {
+    print x;
+    x = x - 1;
+}
