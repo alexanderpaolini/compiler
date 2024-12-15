@@ -59,6 +59,7 @@ dkms.conf
 /Makefile
 /*.cmake
 /CMakeLists.txt.user
+/out/
 
 # Visual Studio Code
 .vscode/
