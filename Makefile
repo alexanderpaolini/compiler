@@ -1,7 +1,6 @@
 # Set the compiler and flags
 CC = gcc
 CFLAGS = -Wall -g
-INCLUDES = -I./libs/uthash
 
 # Set the output binary directory and the program name
 OUT_DIR = ./out
