@@ -56,7 +56,6 @@ dkms.conf
 */build/
 /CMakeCache.txt
 /CMakeFiles/
-/Makefile
 /*.cmake
 /CMakeLists.txt.user
 /out/
