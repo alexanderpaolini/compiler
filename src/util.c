@@ -224,6 +224,9 @@ void print_ast(ASTNode *node)
             break;
         }
         break;
+    case NODE_STRING:
+        printf("\"%s\"", node->data.string_value);
+        break;
     case NODE_INTEGER:
         printf("%d", node->data.integer_value);
         break;

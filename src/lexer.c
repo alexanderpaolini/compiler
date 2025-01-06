@@ -111,7 +111,7 @@ void lex_string(LexerState *state)
 
     int start_pos = state->pos;
     int len = 0;
-    while (lex_peek(state) != '\0' && lex_peek(state) != '"' && '\n')
+    while (lex_peek(state) != '\0' && lex_peek(state) != '"' && lex_peek(state) != '\n')
     {
         len++;
         char c = lex_consume(state);
@@ -210,10 +210,11 @@ Token *lexer(LexerState *state)
             continue;
         }
 
+        int i;
         switch (ch)
         {
         case '#':
-            int i = 1;
+            i = 1;
             while (lex_peek_n(state, i) != '\0' && lex_peek_n(state, i) != '\n')
             {
                 i++;

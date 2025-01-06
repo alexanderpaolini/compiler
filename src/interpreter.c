@@ -19,7 +19,7 @@
 // Returns:
 // -1 = no value
 // K>=0 = depth of environments
-int get(Environment *environment, char *name, int *value)
+int get(Environment *environment, char *name, Variable *value)
 {
     if (environment == NULL)
     {
@@ -28,9 +28,11 @@ int get(Environment *environment, char *name, int *value)
     State *dummy = environment->state;
     while (dummy != NULL)
     {
-        if (strcmp(name, dummy->name) == 0)
+        if (strcmp(name, dummy->data.name) == 0)
         {
-            (*value) = dummy->value;
+            value->data = dummy->data.data;
+            value->type = dummy->data.type;
+            value->name = dummy->data.name;
             return SUCCESS;
         }
         dummy = dummy->next;
@@ -50,9 +52,9 @@ int get(Environment *environment, char *name, int *value)
     }
 }
 
-int set(Environment *environment, char *name, int value)
+int set(Environment *environment, char *name, void *data)
 {
-    int temp;
+    Variable temp;
     int exists = get(environment, name, &temp);
     if (exists == -1)
     {
@@ -70,9 +72,9 @@ int set(Environment *environment, char *name, int value)
     State *dummy = env->state->next;
     while (dummy)
     {
-        if (strcmp(name, dummy->name) == 0)
+        if (strcmp(name, dummy->data.name) == 0)
         {
-            dummy->value = value;
+            dummy->data.data = data;
             return SUCCESS;
         }
         dummy = dummy->next;
@@ -82,11 +84,11 @@ int set(Environment *environment, char *name, int value)
 }
 
 // Declares the variable in the current (lowest) environment.
-int declare(Environment *environment, char *name, int value)
+int declare(Environment *environment, char *name, char *type, void *data)
 {
     // Declare is either called when "int NAME (= VALUE)?;" is written.
     // As such, it cannot be used when a variable already exists.
-    int temp;
+    Variable temp;
     int exists = get(environment, name, &temp);
     if (exists != -1)
     {
@@ -94,13 +96,15 @@ int declare(Environment *environment, char *name, int value)
     }
 
     State *new = (State *)malloc(sizeof(State));
-    new->name = (char *)malloc(strlen(name));
-    strcpy(new->name, name);
-    new->value = value;
+    new->data.name = (char *)malloc(strlen(name));
+    strcpy(new->data.name, name);
+    new->data.type = (char *)malloc(strlen(type));
+    strcpy(new->data.type, type);
+    new->data.data = data;
     new->next = NULL;
 
     State *dummy = environment->state;
-    while (dummy->next != NULL)
+    while (dummy && dummy->next != NULL)
     {
         dummy = dummy->next;
     }
@@ -113,167 +117,428 @@ Environment *create_empty_environment(Environment *outer)
 {
     Environment *env = (Environment *)malloc(sizeof(Environment));
     env->outer = outer;
-    env->state = (State *)malloc(sizeof(State));
-    env->state->name = (char *)malloc(1 * sizeof(char));
-    strcpy(env->state->name, "");
-    env->state->value = -1;
-    env->state->next = NULL;
+    State *state = (State *)malloc(sizeof(State));
+
+    state->data.name = (char *)malloc(1 * sizeof(char));
+    strcpy(state->data.name, "");
+    int val = -1;
+    state->data.data = (int *)&val;
+    state->next = NULL;
+    env->state = state;
+
     return env;
 }
 
+// INT as in STATUS
+// 0 = good     !0 = bad
+// Interpret takes the nodes capable of holding an environment
+// Program; Block Statement
 int interpret(Environment *environment, ASTNode *node)
 {
     if (node == NULL)
     {
-        // fprintf(stderr, "Attempting to interpret NULL.\n");
-        return 0;
+        fprintf(stderr, "Attempting to interpret invalid AST.\n");
+        return FAILURE;
     }
 
-    int rhs;
-    int lhs;
-    int status;
-    int value;
-    int exists;
-    switch (node->type)
+    if (environment == NULL)
+        environment = create_empty_environment(NULL);
+
+    ASTNode *dummy = node->data.program.head;
+    while (dummy)
     {
-    case NODE_PROGRAM:
-        Environment *env = create_empty_environment(NULL);
-        interpret(env, node->data.program.head->next);
-        break;
-    case NODE_STATEMENT:
-        switch (node->data.statement.type)
+        switch (dummy->type)
         {
-        case IF_STATEMENT:
-            if (interpret(environment, node->data.statement.data.expression))
-            {
-                interpret(environment, node->data.statement.data.expression->next);
-            }
-            else
-            {
-                if (node->data.statement.data.expression->next->next)
-                {
-                    interpret(environment, node->data.statement.data.expression->next->next);
-                }
-            }
-        case PRINT_STATEMENT:
-            value = interpret(environment, node->data.statement.data.expression);
-            printf("%d\n", value);
+        case NODE_PROGRAM:
+            interpret(environment, dummy);
             break;
-        case DECLARATION:
-            interpret(environment, node->data.statement.data.declaration);
+        case NODE_STATEMENT:
+            visit_statement(environment, dummy);
             break;
-        case WHILE_STATEMENT:
-            while (interpret(environment, node->data.statement.data.expression))
-            {
-                interpret(environment, node->data.statement.data.expression->next);
-            }
-            break;
-        case ASSIGNMENT:
-            interpret(environment, node->data.statement.data.assignment);
-            break;
-        case BLOCK_STATEMENT:
-            Environment *new_env = create_empty_environment(environment);
-            interpret(new_env, node->data.statement.data.head);
+        case NODE_EOF:
+            return SUCCESS;
             break;
         default:
-            fprintf(stderr, "Unknown statement type %d!", node->data.statement.type);
-            exit(EXIT_FAILURE);
+            fprintf(stderr, "Unexpected node type %d!\n", dummy->type);
+            return FAILURE;
             break;
         }
-        break;
-    case NODE_INTEGER:
-        return node->data.integer_value;
-    case NODE_TYPE:
-        fprintf(stderr, "How did we get here?\n");
+
+        dummy = dummy->next;
+    }
+
+    return FAILURE;
+}
+
+Variable *visit_string(Environment *env, ASTNode *node)
+{
+    Variable *res = (Variable *)malloc(sizeof(Variable));
+    res->type = "str";
+    res->name = "dummy";
+
+    char *value = (char *)malloc(sizeof(char) * (strlen(node->data.string_value) + 1));
+    strcpy(value, node->data.string_value);
+    res->data = value;
+
+    return res;
+}
+
+Variable *visit_integer(Environment *env, ASTNode *node)
+{
+    Variable *res = (Variable *)malloc(sizeof(Variable));
+    res->type = "int";
+    res->name = "dummy";
+
+    int *value = (int *)malloc(sizeof(int));
+    *value = node->data.integer_value;
+    res->data = value;
+
+    return res;
+}
+
+Variable *visit_identifier(Environment *env, ASTNode *node)
+{
+    Variable *res = (Variable *)malloc(sizeof(Variable));
+    int status = get(env, node->data.identifier_value, res);
+    if (status == FAILURE)
+    {
+        fprintf(stderr, "Unknown variable '%s'\n", node->data.identifier_value);
+        exit(EXIT_FAILURE); // TODO: handle this
+    }
+    return res;
+}
+
+Variable *visit_binary_op(Environment *env, ASTNode *node)
+{
+    Variable *res = (Variable *)malloc(sizeof(Variable));
+    res->name = "dummy";
+
+    Variable *left = visit_expression(env, node->data.binary_op.left);
+    Variable *right = visit_expression(env, node->data.binary_op.right);
+
+    if (strcmp(left->type, right->type) != 0)
+    {
+        fprintf(stderr, "Unsupported Binary Operation on two different types.\n");
         exit(EXIT_FAILURE);
-        break;
-    case NODE_BINARY_OP:
-        lhs = interpret(environment, node->data.binary_op.left);
-        rhs = interpret(environment, node->data.binary_op.right);
+    }
+
+    if (strcmp(left->type, "str") == 0)
+    {
+        res->type = "int";
+        int *lhs = malloc(sizeof(int));
         switch (node->data.binary_op.op)
         {
         case ADD:
-            return lhs + rhs;
+            res->type = "str";
+            lhs = malloc(strlen(left->data) + strlen(right->data) + 1);
+            strcpy((char *)lhs, left->data);
+            strcat((char *)lhs, right->data);
+            break;
         case SUBTRACT:
-            return lhs - rhs;
+            fprintf(stderr, "Cannot subtract strings.\n");
+            exit(EXIT_FAILURE);
+            break;
         case MULTIPLY:
-            return lhs * rhs;
+            fprintf(stderr, "Cannot multiply strings.\n");
+            exit(EXIT_FAILURE);
+            break;
         case DIVIDE:
-            return lhs / rhs;
+            fprintf(stderr, "Cannot divide strings.\n");
+            exit(EXIT_FAILURE);
+            break;
         case IS_EQUAL:
-            return lhs == rhs;
+            *lhs = (strcmp(left->data, right->data) == 0);
+            break;
         case IS_LESS_THAN:
-            return lhs < rhs;
+            *lhs = (strcmp(left->data, right->data) < 0);
+            break;
         case LESS_THAN_EQUAL:
-            return lhs <= rhs;
+            *lhs = (strcmp(left->data, right->data) <= 0);
+            break;
         case IS_GREATER_THAN:
-            return lhs > rhs;
+            *lhs = (strcmp(left->data, right->data) > 0);
+            break;
         case GREATER_THAN_EQUAL:
-            return lhs >= rhs;
+            *lhs = (strcmp(left->data, right->data) >= 0);
+            break;
         case IS_NOT_EQUAL:
-            return lhs != rhs;
+            *lhs = (strcmp(left->data, right->data) != 0);
+            break;
         default:
-            fprintf(stderr, "Unknown binary operation\n");
+            fprintf(stderr, "Unsupported Binary Operation.\n");
             exit(EXIT_FAILURE);
+            break;
         }
-    case NODE_UNARY_OP:
-        rhs = interpret(environment, node->data.unary_op.right);
-        switch (node->data.unary_op.op)
+        res->data = lhs;
+    }
+    else if (strcmp(left->type, "int") == 0)
+    {
+        res->type = "int";
+        char *lhs = malloc(sizeof(int));
+        switch (node->data.binary_op.op)
         {
-        case NEGATE:
-            return (-1) * rhs;
-        case LOGICAL_NOT:
-            return !(rhs == 0);
+        case ADD:
+            *lhs = *(int *)left->data + *(int *)right->data;
+            break;
+        case SUBTRACT:
+            *lhs = *(int *)left->data - *(int *)right->data;
+            break;
+        case MULTIPLY:
+            *lhs = *(int *)left->data * *(int *)right->data;
+            break;
+        case DIVIDE:
+            *lhs = *(int *)left->data / *(int *)right->data;
+            break;
+        case IS_EQUAL:
+            *lhs = *(int *)left->data == *(int *)right->data;
+            break;
+        case IS_LESS_THAN:
+            *lhs = *(int *)left->data < *(int *)right->data;
+            break;
+        case LESS_THAN_EQUAL:
+            *lhs = *(int *)left->data <= *(int *)right->data;
+            break;
+        case IS_GREATER_THAN:
+            *lhs = *(int *)left->data > *(int *)right->data;
+            break;
+        case GREATER_THAN_EQUAL:
+            *lhs = *(int *)left->data >= *(int *)right->data;
+            break;
+        case IS_NOT_EQUAL:
+            *lhs = *(int *)left->data != *(int *)right->data;
+            break;
         default:
-            fprintf(stderr, "Unknown unary operation\n");
+            fprintf(stderr, "Unsupported Binary Operation.\n");
             exit(EXIT_FAILURE);
+            break;
         }
+        res->data = lhs;
+    }
+    else
+    {
+        fprintf(stderr, "Unexpected type '%s'.\n", left->type);
+        exit(EXIT_FAILURE);
+    }
+
+    return res;
+}
+
+Variable *visit_unary_op(Environment *env, ASTNode *node)
+{
+    Variable *res = (Variable *)malloc(sizeof(Variable));
+    res->type = "int";
+    res->name = "dummy";
+
+    Variable *right = visit_expression(env, node->data.unary_op.right);
+
+    if (strcmp(right->type, "int") != 0)
+    {
+        fprintf(stderr, "Unsupported Unary Operation on non-integer value.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    int *lhs = malloc(sizeof(int));
+    switch (node->data.unary_op.op)
+    {
+    case NEGATE:
+        *lhs = 0 - (*(int *)right->data);
         break;
-    case NODE_IDENTIFIER:
-        value = -1;
-        exists = get(environment, node->data.identifier_value, &value);
-        if (exists == FAILURE)
-        {
-            fprintf(stderr, "Unknown variable: '%s'\n", node->data.identifier_value);
-            exit(EXIT_FAILURE);
-        }
-        return value;
-        break;
-    case NODE_DECLARATION:
-        status = declare(environment,
-                         node->data.declaration.identifier->data.identifier_value,
-                         node->data.declaration.right ? interpret(environment, node->data.declaration.right) : -1);
-        if (status == FAILURE)
-        {
-            printf("Failed to declare variable '%s'. Has it been declared before?\n",
-                   node->data.declaration.identifier->data.identifier_value);
-            exit(EXIT_FAILURE);
-        }
-        break;
-    case NODE_ASSIGNMENT:
-        status = set(environment,
-                     node->data.assignment.identifier->data.identifier_value,
-                     interpret(environment, node->data.assignment.right));
-        if (status == FAILURE)
-        {
-            printf("Failed to set variable '%s'. Has it been declared?\n",
-                   node->data.assignment.identifier->data.identifier_value);
-            exit(EXIT_FAILURE);
-        }
-        break;
-    case NODE_EOF:
-        return SUCCESS;
+    case LOGICAL_NOT:
+        *lhs = !*(int *)right->data;
         break;
     default:
-        printf("Unknown node type %d\n", node->type);
+        fprintf(stderr, "Unsupported Unary Operation.\n");
         exit(EXIT_FAILURE);
         break;
     }
+    res->data = lhs;
 
-    if (node->next)
+    return res;
+}
+
+// Integer will set variable.data to the value of the integer
+Variable *visit_expression(Environment *env, ASTNode *node)
+{
+    if (node == NULL)
     {
-        interpret(environment, node->next);
+        return NULL;
     }
 
+    switch (node->type)
+    {
+    case NODE_STRING:
+        return visit_string(env, node);
+        break;
+    case NODE_INTEGER:
+        return visit_integer(env, node);
+        break;
+    case NODE_IDENTIFIER:
+        return visit_identifier(env, node);
+        break;
+    case NODE_BINARY_OP:
+        return visit_binary_op(env, node);
+        break;
+    case NODE_UNARY_OP:
+        return visit_unary_op(env, node);
+        break;
+    default:
+        fprintf(stderr, "How did we get here (1)?\n");
+        exit(EXIT_FAILURE);
+        break;
+    }
+}
+
+int visit_declaration(Environment *env, ASTNode *node)
+{
+    Variable *data = visit_expression(env, node->data.declaration.right);
+
+    // TODO: change this
+    if (data == NULL)
+    {
+        data = (Variable *)malloc(sizeof(Variable));
+
+        int *value = (int *)malloc(sizeof(int));
+        *value = -1;
+        data->data = value;
+
+        data->name = "dummy";
+        data->type = "void";
+    }
+
+    int status = declare(
+        env,
+        node->data.declaration.identifier->data.identifier_value,
+        node->data.declaration.type->data.type.identifier->data.identifier_value,
+        data->data);
+
+    if (status == FAILURE)
+    {
+        fprintf(stderr, "Unable to declare variable '%s'. Has it already bee  declared?\n", node->data.assignment.identifier->data.identifier_value);
+        exit(EXIT_FAILURE); // TODO: handle this
+    }
+
+    return SUCCESS;
+}
+
+int visit_assignment(Environment *env, ASTNode *node)
+{
+    Variable *data = visit_expression(env, node->data.assignment.right);
+
+    int status = set(
+        env,
+        node->data.assignment.identifier->data.identifier_value,
+        data->data);
+
+    if (status == FAILURE)
+    {
+        fprintf(stderr, "Unable to update variable '%s'. Has it been declared yet?\n", node->data.assignment.identifier->data.identifier_value);
+        exit(EXIT_FAILURE); // TODO: handle this
+    }
+
+    return SUCCESS;
+}
+
+int visit_statement(Environment *env, ASTNode *node)
+{
+    Environment *new_env;
+    switch (node->data.statement.type)
+    {
+    case DECLARATION:
+        visit_declaration(env, node->data.statement.data.declaration);
+        break;
+    case ASSIGNMENT:
+        visit_assignment(env, node->data.statement.data.assignment);
+        break;
+    case BLOCK_STATEMENT:
+        new_env = create_empty_environment(env);
+        visit_block_statement(new_env, node->data.statement.data.head);
+        break;
+    case WHILE_STATEMENT:
+        visit_while_statement(env, node->data.statement.data.expression);
+        break;
+    // case FOR_STATEMENT:
+    //     visit_for_statement(env, dummy);
+    //     break;
+    case PRINT_STATEMENT:
+        visit_print_statement(env, node->data.statement.data.expression);
+        break;
+    case IF_STATEMENT:
+        visit_if_statement(env, node->data.statement.data.expression);
+        break;
+    default:
+        fprintf(stderr, "Unknown statement type %d!\n", node->data.statement.type);
+        return FAILURE;
+        break;
+    }
+
+    return SUCCESS;
+}
+
+int visit_block_statement(Environment *env, ASTNode *node)
+{
+    ASTNode *dummy = node;
+    while (dummy)
+    {
+        visit_statement(env, dummy);
+        dummy = dummy->next;
+    }
+    return SUCCESS;
+}
+
+int visit_while_statement(Environment *env, ASTNode *node)
+{
+    printf("while statement\n");
+    Variable *data;
+    while (data = visit_expression(env, node), *(int *)data->data)
+    {
+        visit_statement(env, node->next);
+    }
+    return SUCCESS;
+}
+
+int visit_if_statement(Environment *env, ASTNode *node)
+{
+    Variable *data = visit_expression(env, node);
+    if (*(int *)data->data)
+    {
+        visit_statement(env, node->next);
+    }
+    else
+    {
+        if (node->next->next)
+        {
+            visit_statement(env, node->next->next);
+        }
+    }
+    return SUCCESS;
+}
+
+int visit_for_statement(Environment *env, ASTNode *node)
+{
+    return SUCCESS;
+}
+
+int visit_print_statement(Environment *env, ASTNode *node)
+{
+    Variable *data = visit_expression(env, node);
+    if (strcmp(data->type, "int") == 0)
+    {
+        int *int_ptr = (int *)data->data;
+        printf("%d\n", *int_ptr);
+    }
+    else if (strcmp(data->type, "str") == 0)
+    {
+        char *str_ptr = (char *)data->data;
+        printf("%s\n", str_ptr);
+    }
+    else
+    {
+        // SHOULD NOT HAPPEN?
+    }
+    return SUCCESS;
+}
+
+int visit_eof(Environment *env, ASTNode *node)
+{
     return SUCCESS;
 }

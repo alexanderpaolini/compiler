@@ -43,7 +43,8 @@
  * TERM            -> FACTOR ( MULTIPLICATIVE_OPERATOR FACTOR )* // Multiplication or division applied to factors
  *
  * FACTOR can be a NUMBER, a parenthesized EXPRESSION, a unary operator applied to a TERM, or a comparison
- * FACTOR          -> NUMBER
+ * FACTOR          -> STRING
+ *                 | NUMBER
  *                 | '(' EXPRESSION ')'
  *                 | UNARY_OPERATOR FACTOR
  *                 | IDENTIFIER
@@ -61,6 +62,7 @@ typedef enum
     NODE_STATEMENT,
     NODE_ASSIGNMENT,
     NODE_DECLARATION,
+    NODE_STRING,
     NODE_INTEGER,
     NODE_TYPE,
     NODE_IDENTIFIER,
@@ -115,6 +117,9 @@ typedef struct ASTNode
 
         // Identifier
         char *identifier_value;
+
+        // String
+        char *string_value;
 
         // Binary Operation
         struct

@@ -55,6 +55,7 @@ int main(int argc, char *argv[])
         printf("Parsed expression list:\n");
         print_ast(parser_state->node);
 
+        printf("Program Output:\n");
         int value = interpret(NULL, parser_state->node);
         printf("Program status: %d\n", value);
 

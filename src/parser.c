@@ -46,6 +46,30 @@ ASTNode *parse_eof(ParserState *state)
     return node;
 }
 
+ASTNode *parse_string(ParserState *state)
+{
+    Token *current_token = parse_consume(state);
+
+    if (current_token->type != STRING)
+    {
+        char *str = token_to_string(current_token);
+        fprintf(stderr, "Expected 'STRING'. Found: %s\n", str);
+        free(str);
+        exit(EXIT_FAILURE);
+    }
+
+    ASTNode *node = create_empty_ast_node();
+
+    node->type = NODE_STRING;
+
+    // Should this be moved to its own function?
+    // calculate_integer_value(ParserState *state, Token *token)
+    node->data.string_value = (char *)malloc(sizeof(char) * (current_token->end_pos - current_token->start_pos + 1));
+    strcpy(node->data.string_value, current_token->value);
+
+    return node;
+}
+
 ASTNode *parse_number(ParserState *state)
 {
     Token *current_token = parse_consume(state);
@@ -80,6 +104,7 @@ ASTNode *parse_unary_operator(ParserState *state)
 
     ASTNode *node = create_empty_ast_node();
     node->type = NODE_UNARY_OP;
+    char *str;
     switch (current_token->type)
     {
     case TILDE:
@@ -89,7 +114,7 @@ ASTNode *parse_unary_operator(ParserState *state)
         node->data.unary_op.op = LOGICAL_NOT;
         break;
     default:
-        char *str = token_to_string(current_token);
+        str = token_to_string(current_token);
         fprintf(stderr, "Expected 'UnaryOperator'. Found: %s\n", str);
         free(str);
         exit(EXIT_FAILURE);
@@ -105,6 +130,7 @@ ASTNode *parse_additive_operator(ParserState *state)
     ASTNode *node = create_empty_ast_node();
     node->type = NODE_BINARY_OP;
 
+    char *str;
     switch (current_token->type)
     {
     case PLUS:
@@ -114,7 +140,7 @@ ASTNode *parse_additive_operator(ParserState *state)
         node->data.binary_op.op = SUBTRACT;
         break;
     default:
-        char *str = token_to_string(current_token);
+        str = token_to_string(current_token);
         fprintf(stderr, "Expected 'AdditiveOperator'. Found: %s\n", str);
         free(str);
         exit(EXIT_FAILURE);
@@ -130,6 +156,7 @@ ASTNode *parse_multiplicative_operator(ParserState *state)
     ASTNode *node = create_empty_ast_node();
     node->type = NODE_BINARY_OP;
 
+    char *str;
     switch (current_token->type)
     {
     case STAR:
@@ -139,7 +166,7 @@ ASTNode *parse_multiplicative_operator(ParserState *state)
         node->data.binary_op.op = DIVIDE;
         break;
     default:
-        char *str = token_to_string(current_token);
+        str = token_to_string(current_token);
         fprintf(stderr, "Expected 'MultiplicativeOperator'. Found: %s\n", str);
         free(str);
         exit(EXIT_FAILURE);
@@ -155,6 +182,7 @@ ASTNode *parse_comparison_operator(ParserState *state)
     ASTNode *node = create_empty_ast_node();
     node->type = NODE_BINARY_OP;
 
+    char *str;
     switch (current_token->type)
     {
     case GREATER:
@@ -179,7 +207,7 @@ ASTNode *parse_comparison_operator(ParserState *state)
         node->data.binary_op.op = IS_EQUAL;
         break;
     default:
-        char *str = token_to_string(current_token);
+        str = token_to_string(current_token);
         fprintf(stderr, "Expected 'ComparisonOperator'. Found: %s\n", str);
         free(str);
         exit(EXIT_FAILURE);
@@ -191,6 +219,11 @@ ASTNode *parse_comparison_operator(ParserState *state)
 ASTNode *parse_factor(ParserState *state)
 {
     Token *current_token = parse_peek(state);
+
+    if (current_token->type == STRING)
+    {
+        return parse_string(state);
+    }
 
     if (current_token->type == NUMBER)
     {
@@ -228,7 +261,7 @@ ASTNode *parse_factor(ParserState *state)
     }
 
     char *str = token_to_string(current_token);
-    fprintf(stderr, "Unexpected Token. Found: %s\n", str);
+    fprintf(stderr, "Unexpected Token (1). Found: %s\n", str);
     free(str);
     exit(EXIT_FAILURE);
 }
@@ -309,12 +342,6 @@ ASTNode *parse_type(ParserState *state)
     ASTNode *node = create_empty_ast_node();
     node->type = NODE_TYPE;
     node->data.type.identifier = parse_identifier(state);
-    // This should be changed soon.
-    if (strcmp(node->data.type.identifier->data.identifier_value, "int") != 0)
-    {
-        fprintf(stderr, "Expected 'int'. Found: %s.\n", node->data.type.identifier->data.identifier_value);
-        exit(EXIT_FAILURE);
-    }
     return node;
 }
 
@@ -392,6 +419,7 @@ ASTNode *parse_statement(ParserState *state)
         node->data.statement.type = PRINT_STATEMENT;
         parse_consume(state); // Consume PRINT.
         node->data.statement.data.expression = parse_expression(state);
+        parse_consume(state); // Consume SEMICOLON.
         return node;
         break;
     case WHILE:
@@ -439,16 +467,13 @@ ASTNode *parse_statement(ParserState *state)
 
         node->data.statement.data.head = dummy_head->next;
         return node;
-    case SEMICOLON:
-        parse_consume(state); // Consume SEMICOLON.
-        return NULL;
     default:
         free(node);
 
         if (parse_peek(state)->type != RIGHT_BRACKET)
         {
             char *str = token_to_string(parse_peek(state));
-            printf("Unexpected Token. Found: %s\n", str);
+            printf("Unexpected Token (2). Found: %s\n", str);
             free(str);
             exit(EXIT_FAILURE);
         }
