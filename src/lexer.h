@@ -37,7 +37,7 @@ typedef enum TokenKind
     RIGHT_BRACKET,
 
     // Utility
-    _EOF,
+    EOF_TOKEN,
     SEMICOLON,
     EQUALS,
     IDENTIFIER,
@@ -48,10 +48,14 @@ typedef enum TokenKind
 typedef struct Token
 {
     TokenKind type;
+    char *value;
+
+    // Positional values
     int start_pos;
     int end_pos;
     int line;
-    char *value;
+    
+    // Linked list next token
     struct Token *next;
 } Token;
 

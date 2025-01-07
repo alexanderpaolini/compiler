@@ -215,7 +215,9 @@ Token *lexer(LexerState *state)
         {
         case '#':
             i = 1;
-            while (lex_peek_n(state, i) != '\0' && lex_peek_n(state, i) != '\n')
+            while (
+                lex_peek_n(state, i) != '\0' &&
+                lex_peek_n(state, i) != '\n')
             {
                 i++;
             }
@@ -352,7 +354,7 @@ Token *lexer(LexerState *state)
         }
     }
 
-    state->tail->type = _EOF;
+    state->tail->type = EOF_TOKEN;
     state->tail->start_pos = state->pos;
     state->tail->end_pos = state->pos;
     state->tail->line = state->line_num;

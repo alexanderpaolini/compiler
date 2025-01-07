@@ -191,7 +191,7 @@ typedef struct
 int parse_is_at_eof(ParserState *state);
 Token *parse_peek(ParserState *state);
 Token *parse_peek_next(ParserState *state);
-Token *parse_consume(ParserState *state);
+Token *parse_consume(ParserState *state, const TokenKind expected_tokens[], int len);
 ASTNode *parse_eof(ParserState *state);
 ASTNode *parse_number(ParserState *state);
 ASTNode *parse_unary_operator(ParserState *state);

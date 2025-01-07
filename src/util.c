@@ -63,7 +63,7 @@ const char *token_kind_to_string(TokenKind type)
         return "IDENTIFIER";
     case EQUALS:
         return "EQUALS";
-    case _EOF:
+    case EOF_TOKEN:
         return "_EOF";
     case SEMICOLON:
         return "SEMICOLON";
