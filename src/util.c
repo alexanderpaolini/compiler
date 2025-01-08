@@ -84,9 +84,10 @@ char *token_to_string(Token *tok)
     }
 
     sprintf(x,
-            "Token { type: %s, line: %d, pos: %d, length: %d, value: \"%s\" }\n",
+            "Token { type: %s, line: %d, line_pos: %d, pos: %d, length: %d, value: \"%s\" }\n",
             token_kind_to_string(tok->type),
             tok->line,
+            tok->line_start_pos,
             tok->start_pos,
             tok->end_pos - tok->start_pos,
             tok->value);

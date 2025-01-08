@@ -1,6 +1,5 @@
 #include "parser.h"
 
-
 typedef struct
 {
     char *name;
@@ -23,6 +22,8 @@ typedef struct Environment
     struct Environment *outer;
     State *state;
 } Environment;
+
+Environment *create_empty_environment(Environment *outer);
 
 int interpret(Environment *environment, ASTNode *node);
 int visit_declaration(Environment *env, ASTNode *node);

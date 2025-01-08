@@ -40,6 +40,7 @@ void lex_emit(LexerState *state, TokenKind type, int start_pos, int end_pos)
     state->tail->type = type;
     state->tail->start_pos = start_pos;
     state->tail->end_pos = end_pos;
+    state->tail->line_start_pos = start_pos - state->line_pos;
 
     int len = end_pos - start_pos;
     state->tail->value = (char *)malloc(len + 1);
@@ -204,6 +205,7 @@ Token *lexer(LexerState *state)
         {
             if (ch == '\n' || ch == '\r')
             {
+                state->line_pos = state->pos + 1;
                 state->line_num++;
             }
             lex_consume(state);
@@ -348,7 +350,7 @@ Token *lexer(LexerState *state)
                 break;
             }
 
-            fprintf(stderr, "Unexpected character '%c'.", ch);
+            fprintf(stderr, "Unexpected character '%c'.\n", ch);
             exit(1);
             continue;
         }

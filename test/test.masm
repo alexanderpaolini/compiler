@@ -1,5 +1,4 @@
-int x = 100;
-while (x) {
-    print x;
-    x = x - 2;
+{
+    print "Hello";
+    print 1 "ERROR";
 }

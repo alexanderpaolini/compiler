@@ -40,19 +40,65 @@ Token *parse_consume(ParserState *state, const TokenKind expected_tokens[], int 
     if (expected_tokens != NULL && !parse_match(state, expected_tokens, len))
     {
         Token *current_token = parse_peek(state);
-        char *str = token_to_string(current_token);
 
-        fprintf(stderr, len == 1 ? "Expected: " : "Expected one of: ");
-        for (int i = 0; i < len; i++)
+        // Print expected tokens
+        if (len == 1)
         {
-            fprintf(stderr, "'%s' ", token_kind_to_string(expected_tokens[i]));
+            fprintf(stderr, "Expected '%s'\n", token_kind_to_string(expected_tokens[0]));
+        }
+        else
+        {
+            fprintf(stderr, "Expected one of: ");
+            for (int i = 0; i < len; i++)
+            {
+                fprintf(stderr, i == len - 1 ? "%s" : "%s, ", token_kind_to_string(expected_tokens[i]));
+            }
+            fprintf(stderr, "\n");
         }
 
-        fprintf(stderr, "\nFound: %s\n", str);
-        free(str);
+        // Print found token
+        fprintf(stderr, "Found: '%s'\n", token_kind_to_string(current_token->type));
+
+        // Print where parse error occurred
+        fprintf(stderr, "%d:%d\n", current_token->line, current_token->line_start_pos);
+
+        int line_num = current_token->line;
+        char *prog = state->prog;
+
+        // Find the start of the line
+        int line_start = 0;
+        while (line_num > 0)
+        {
+            if (prog[line_start] == '\n')
+            {
+                line_num--;
+            }
+            line_start++;
+        }
+
+        // Find the end of the line
+        int line_end = line_start;
+        while (prog[line_end] != '\n' && prog[line_end] != '\0')
+        {
+            line_end++;
+        }
+
+        // Write the line to stderr
+        fwrite(prog + line_start, sizeof(char), line_end - line_start, stderr);
+        printf("\n");
+
+        // Print a pointer (^) at the token's position
+        for (int i = 0; i < current_token->line_start_pos; i++)
+        {
+            fprintf(stderr, " ");
+        }
+        fprintf(stderr, "^\n");
+
+        // Exit after printing the error message
         exit(EXIT_FAILURE);
     }
 
+    // If no error, update the parser state and return the current token
     Token *temp = state->cur;
     state->cur = state->cur->next;
     return temp;
@@ -61,8 +107,6 @@ Token *parse_consume(ParserState *state, const TokenKind expected_tokens[], int 
 ASTNode *parse_eof(ParserState *state)
 {
     TokenKind expected[] = {EOF_TOKEN};
-    // Token *current_token =
-    // TODO: FIX HERE
     parse_consume(state, expected, sizeof(expected) / sizeof(TokenKind));
 
     ASTNode *node = create_empty_ast_node();
@@ -231,15 +275,8 @@ ASTNode *parse_factor(ParserState *state)
 
         ASTNode *node = parse_expression(state);
 
-        if (parse_peek(state)->type != RIGHT_PAREN)
-        {
-            char *str = token_to_string(parse_peek(state));
-            fprintf(stderr, "Expected 'RIGHT_PAREN'. Found: %s\n", str);
-            free(str);
-            exit(EXIT_FAILURE);
-        }
-
-        parse_consume(state, NULL, 0); // Consume RIGHT_PAREN.
+        TokenKind expected[] = {RIGHT_PAREN};
+        parse_consume(state, expected, 1);
 
         return node;
     }
@@ -456,13 +493,16 @@ ASTNode *parse_statement(ParserState *state)
     default:
         free(node);
 
-        if (parse_peek(state)->type != RIGHT_BRACKET)
-        {
-            char *str = token_to_string(parse_peek(state));
-            printf("Unexpected Token. Expected Statement. Found: %s\n", str);
-            free(str);
-            exit(EXIT_FAILURE);
-        }
+        // Commenting out this entire section
+        // Pretty sure its useless but im not 100%
+        // // WHY IS THIS CODE HERE??
+        // if (parse_peek(state)->type != RIGHT_BRACKET)
+        // {
+        char *str = token_to_string(parse_peek(state));
+        printf("Unexpected Token. Expected Statement. Found: %s\n", str);
+        free(str);
+        exit(EXIT_FAILURE);
+        // }
 
         return NULL;
     }
@@ -533,4 +573,5 @@ ParserState *create_parser_state(char *program, Token *head)
 
 void free_parser_state(ParserState *state) {
     // THIS FUNCTION DOESN'T DO ANYTHING BECAUSE I DON'T CARE ENOUGH
+    // Ideally it would be paired with a recursive free_astnode that frees each ASTNode
 };

@@ -54,6 +54,7 @@ typedef struct Token
     int start_pos;
     int end_pos;
     int line;
+    int line_start_pos;
     
     // Linked list next token
     struct Token *next;
@@ -65,6 +66,7 @@ typedef struct LexerState
     char *prog;
     struct Token *tail;
     int line_num;
+    int line_pos;
 } LexerState;
 
 int is_whitespace(char c);
