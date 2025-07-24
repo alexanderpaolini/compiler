@@ -1,0 +1,6 @@
+function addOne(x) {
+    return x + 1;
+}
+
+int result = addOne(5);
+print result;

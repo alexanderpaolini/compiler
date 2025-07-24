@@ -125,7 +125,59 @@ Environment *create_empty_environment(Environment *outer)
     state->data.data = (int *)&val;
     state->next = NULL;
     env->state = state;
+    env->functions = NULL;  // Initialize functions list
 
+    return env;
+}
+
+// Function management functions
+Function *lookup_function(Environment *env, char *name)
+{
+    Function *current = env->functions;
+    while (current != NULL)
+    {
+        if (strcmp(current->name, name) == 0)
+        {
+            return current;
+        }
+        current = current->next;
+    }
+    
+    // Look in outer environment if not found
+    if (env->outer != NULL)
+    {
+        return lookup_function(env->outer, name);
+    }
+    
+    return NULL;
+}
+
+void store_function(Environment *env, char *name, ASTNode *parameters, ASTNode *body)
+{
+    Function *new_func = (Function *)malloc(sizeof(Function));
+    new_func->name = (char *)malloc((strlen(name) + 1) * sizeof(char));
+    strcpy(new_func->name, name);
+    new_func->parameters = parameters;
+    new_func->body = body;
+    new_func->next = env->functions;
+    env->functions = new_func;
+}
+
+Environment *create_function_environment(Environment *parent)
+{
+    Environment *env = (Environment *)malloc(sizeof(Environment));
+    env->outer = parent;
+    
+    // Create a dummy state node like in create_empty_environment
+    State *state = (State *)malloc(sizeof(State));
+    state->data.name = (char *)malloc(1 * sizeof(char));
+    strcpy(state->data.name, "");
+    int val = -1;
+    state->data.data = (int *)&val;
+    state->next = NULL;
+    env->state = state;
+    
+    env->functions = NULL;  // Functions are inherited from parent
     return env;
 }
 
@@ -497,6 +549,71 @@ int visit_block_statement(Environment *env, ASTNode *node)
     return SUCCESS;
 }
 
+int visit_block_statement_with_return(Environment *env, ASTNode *node, ReturnContext *ret_ctx)
+{
+    ASTNode *dummy = node;
+    while (dummy && !ret_ctx->has_returned)
+    {
+        visit_statement_with_return(env, dummy, ret_ctx);
+        dummy = dummy->next;
+    }
+    return SUCCESS;
+}
+
+int visit_statement_with_return(Environment *env, ASTNode *node, ReturnContext *ret_ctx)
+{
+    Environment *new_env;
+    switch (node->data.statement.type)
+    {
+    case DECLARATION:
+        visit_declaration(env, node->data.statement.data.declaration);
+        break;
+    case ASSIGNMENT:
+        visit_assignment(env, node->data.statement.data.assignment);
+        break;
+    case BLOCK_STATEMENT:
+        new_env = create_empty_environment(env);
+        visit_block_statement_with_return(new_env, node->data.statement.data.head, ret_ctx);
+        break;
+    case WHILE_STATEMENT:
+        visit_while_statement(env, node->data.statement.data.expression);
+        break;
+    case PRINT_STATEMENT:
+        visit_print_statement(env, node->data.statement.data.expression);
+        break;
+    case IF_STATEMENT:
+        visit_if_statement(env, node->data.statement.data.expression);
+        break;
+    case FUNCTION_STATEMENT:
+        visit_function_declaration(env, node->data.statement.data.expression);
+        break;
+    case RETURN_STATEMENT:
+        visit_return_statement_with_context(env, node->data.statement.data.expression, ret_ctx);
+        break;
+    case EXPRESSION_STATEMENT:
+        visit_expression(env, node->data.statement.data.expression);
+        break;
+    default:
+        fprintf(stderr, "Unknown statement type %d!\n", node->data.statement.type);
+        return FAILURE;
+    }
+    return SUCCESS;
+}
+
+int visit_return_statement_with_context(Environment *env, ASTNode *node, ReturnContext *ret_ctx)
+{
+    if (node->data.return_statement.expression)
+    {
+        ret_ctx->value = visit_expression(env, node->data.return_statement.expression);
+    }
+    else
+    {
+        ret_ctx->value = NULL;
+    }
+    ret_ctx->has_returned = 1;
+    return SUCCESS;
+}
+
 int visit_while_statement(Environment *env, ASTNode *node)
 {
     printf("while statement\n");
@@ -552,8 +669,13 @@ int visit_print_statement(Environment *env, ASTNode *node)
 
 int visit_function_declaration(Environment *env, ASTNode *node)
 {
-    // For now, just store the function name - implement full storage later
-    printf("Function declaration: %s\n", node->data.function_declaration.identifier->data.identifier_value);
+    char *function_name = node->data.function_declaration.identifier->data.identifier_value;
+    ASTNode *parameters = node->data.function_declaration.parameters;
+    ASTNode *body = node->data.function_declaration.body;
+    
+    // Store the function in the environment
+    store_function(env, function_name, parameters, body);
+    
     return SUCCESS;
 }
 
@@ -574,18 +696,72 @@ int visit_return_statement(Environment *env, ASTNode *node)
 
 Variable *visit_function_call(Environment *env, ASTNode *node)
 {
-    // For now, just return a dummy value - implement proper function calling later
-    printf("Function call: %s\n", node->data.function_call.identifier->data.identifier_value);
+    char *function_name = node->data.function_call.identifier->data.identifier_value;
+    ASTNode *arguments = node->data.function_call.arguments;
     
-    Variable *res = (Variable *)malloc(sizeof(Variable));
-    res->type = "int";
-    res->name = "dummy";
+    // Look up the function
+    Function *func = lookup_function(env, function_name);
+    if (func == NULL)
+    {
+        fprintf(stderr, "Function '%s' not found\n", function_name);
+        exit(EXIT_FAILURE);
+    }
     
-    int *value = (int *)malloc(sizeof(int));
-    *value = 42; // dummy return value
-    res->data = value;
+    // Create new environment for function execution
+    Environment *func_env = create_function_environment(env);
     
-    return res;
+    // Bind parameters to arguments
+    ASTNode *param = func->parameters;
+    ASTNode *arg = arguments;
+    
+    while (param != NULL && arg != NULL)
+    {
+        // Evaluate the argument
+        Variable *arg_value = visit_expression(env, arg);
+        
+        // Bind the parameter name to the argument value
+        char *param_name = param->data.identifier_value;
+        declare(func_env, param_name, arg_value->type, arg_value->data);
+        
+        param = param->next;
+        arg = arg->next;
+    }
+    
+    // Check if parameter and argument counts match
+    if (param != NULL || arg != NULL)
+    {
+        fprintf(stderr, "Parameter/argument count mismatch for function '%s'\n", function_name);
+        exit(EXIT_FAILURE);
+    }
+    
+    // Execute function body
+    ReturnContext ret_ctx = {NULL, 0};
+    
+    // Execute the function body (which should be a block statement)
+    if (func->body->type == NODE_STATEMENT && func->body->data.statement.type == BLOCK_STATEMENT)
+    {
+        visit_block_statement_with_return(func_env, func->body->data.statement.data.head, &ret_ctx);
+    }
+    else
+    {
+        fprintf(stderr, "Invalid function body for '%s'\n", function_name);
+        exit(EXIT_FAILURE);
+    }
+    
+    // Return the value
+    if (ret_ctx.has_returned && ret_ctx.value != NULL)
+    {
+        return ret_ctx.value;
+    }
+    else
+    {
+        // Return void/null - create a dummy variable for now
+        Variable *res = (Variable *)malloc(sizeof(Variable));
+        res->type = "void";
+        res->name = "void_return";
+        res->data = NULL;
+        return res;
+    }
 }
 
 int visit_eof(Environment *env, ASTNode *node)

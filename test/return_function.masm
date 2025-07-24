@@ -1,0 +1,6 @@
+function getValue() {
+    return 42;
+}
+
+int x = getValue();
+print x;
