@@ -225,6 +225,13 @@ void print_ast(ASTNode *node)
                 printf(" ");
             printf("}");
             break;
+        case FUNCTION_STATEMENT:
+            print_ast(node->data.statement.data.expression);
+            break;
+        case RETURN_STATEMENT:
+            print_ast(node->data.statement.data.expression);
+            printf(";");
+            break;
         default:
             printf("Unknown statement type %d", node->data.statement.type);
             break;
@@ -270,6 +277,48 @@ void print_ast(ASTNode *node)
         print_ast(node->data.assignment.identifier);
         printf(" = ");
         print_ast(node->data.assignment.right);
+        break;
+    case NODE_FUNCTION_DECLARATION:
+        printf("FUNCTION ");
+        print_ast(node->data.function_declaration.identifier);
+        printf("(");
+        if (node->data.function_declaration.parameters)
+        {
+            ASTNode *param = node->data.function_declaration.parameters;
+            while (param)
+            {
+                print_ast(param);
+                if (param->next)
+                    printf(", ");
+                param = param->next;
+            }
+        }
+        printf(") ");
+        print_ast(node->data.function_declaration.body);
+        break;
+    case NODE_FUNCTION_CALL:
+        print_ast(node->data.function_call.identifier);
+        printf("(");
+        if (node->data.function_call.arguments)
+        {
+            ASTNode *arg = node->data.function_call.arguments;
+            while (arg)
+            {
+                print_ast(arg);
+                if (arg->next)
+                    printf(", ");
+                arg = arg->next;
+            }
+        }
+        printf(")");
+        break;
+    case NODE_RETURN:
+        printf("RETURN");
+        if (node->data.return_statement.expression)
+        {
+            printf(" ");
+            print_ast(node->data.return_statement.expression);
+        }
         break;
     default:
         printf("Unknown node type %d", node->type);
