@@ -19,6 +19,10 @@ const char *token_kind_to_string(TokenKind type)
         return "FOR";
     case PRINT:
         return "PRINT";
+    case FUNCTION:
+        return "FUNCTION";
+    case RETURN:
+        return "RETURN";
     case PLUS:
         return "PLUS";
     case MINUS:
@@ -67,6 +71,8 @@ const char *token_kind_to_string(TokenKind type)
         return "_EOF";
     case SEMICOLON:
         return "SEMICOLON";
+    case COMMA:
+        return "COMMA";
 
     default:
         return "UNKNOWN";

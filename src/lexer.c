@@ -98,6 +98,14 @@ void lex_identifier(LexerState *state)
     {
         lex_emit(state, FOR, start_pos, start_pos + len);
     }
+    else if (strcmp(id, "function") == 0)
+    {
+        lex_emit(state, FUNCTION, start_pos, start_pos + len);
+    }
+    else if (strcmp(id, "return") == 0)
+    {
+        lex_emit(state, RETURN, start_pos, start_pos + len);
+    }
     else
     {
         lex_emit(state, IDENTIFIER, start_pos, start_pos + len);
@@ -313,6 +321,10 @@ Token *lexer(LexerState *state)
             break;
         case ';':
             lex_emit(state, SEMICOLON, state->pos, state->pos + 1);
+            lex_consume(state);
+            break;
+        case ',':
+            lex_emit(state, COMMA, state->pos, state->pos + 1);
             lex_consume(state);
             break;
         case '"':
