@@ -68,6 +68,9 @@ typedef enum
     NODE_IDENTIFIER,
     NODE_BINARY_OP,
     NODE_UNARY_OP,
+    NODE_FUNCTION_DECLARATION,
+    NODE_FUNCTION_CALL,
+    NODE_RETURN,
     NODE_EOF,
 } NodeType;
 
@@ -80,6 +83,9 @@ typedef enum
     FOR_STATEMENT,
     PRINT_STATEMENT,
     IF_STATEMENT,
+    FUNCTION_STATEMENT,
+    RETURN_STATEMENT,
+    EXPRESSION_STATEMENT,
 } StatementType;
 
 typedef enum BinaryOp
@@ -170,6 +176,27 @@ typedef struct ASTNode
             struct ASTNode *identifier;
         } type;
 
+        // Function Declaration
+        struct
+        {
+            struct ASTNode *identifier;
+            struct ASTNode *parameters;  // linked list of parameters
+            struct ASTNode *body;        // block statement
+        } function_declaration;
+
+        // Function Call
+        struct
+        {
+            struct ASTNode *identifier;
+            struct ASTNode *arguments;   // linked list of arguments
+        } function_call;
+
+        // Return Statement
+        struct
+        {
+            struct ASTNode *expression;  // can be NULL for void return
+        } return_statement;
+
         // Program
         struct
         {
@@ -205,6 +232,9 @@ ASTNode *parse_identifier(ParserState *state);
 ASTNode *parse_type(ParserState *state);
 ASTNode *parse_variable_declaration(ParserState *state);
 ASTNode *parse_variable_assignment(ParserState *state);
+ASTNode *parse_function_declaration(ParserState *state);
+ASTNode *parse_function_call(ParserState *state);
+ASTNode *parse_return_statement(ParserState *state);
 ASTNode *parse_statement(ParserState *state);
 ASTNode *parser(ParserState *state);
 ASTNode *create_empty_ast_node();

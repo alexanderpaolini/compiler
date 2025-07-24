@@ -9,6 +9,8 @@ typedef enum TokenKind
     WHILE,
     FOR,
     PRINT,
+    FUNCTION,
+    RETURN,
 
     // Binary Expressions
     PLUS,
@@ -39,6 +41,7 @@ typedef enum TokenKind
     // Utility
     EOF_TOKEN,
     SEMICOLON,
+    COMMA,
     EQUALS,
     IDENTIFIER,
     NUMBER,

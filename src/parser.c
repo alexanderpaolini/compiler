@@ -290,7 +290,15 @@ ASTNode *parse_factor(ParserState *state)
 
     if (current_token->type == IDENTIFIER)
     {
-        return parse_identifier(state);
+        // Check if it's a function call (identifier followed by left paren)
+        if (parse_peek_next(state)->type == LEFT_PAREN)
+        {
+            return parse_function_call(state);
+        }
+        else
+        {
+            return parse_identifier(state);
+        }
     }
 
     char *str = token_to_string(current_token);
@@ -412,6 +420,106 @@ ASTNode *parse_variable_assignment(ParserState *state)
     return node;
 }
 
+ASTNode *parse_function_declaration(ParserState *state)
+{
+    // Parse function name
+    ASTNode *identifier_node = parse_identifier(state);
+    
+    // Expect '('
+    TokenKind expected_lparen[] = {LEFT_PAREN};
+    parse_consume(state, expected_lparen, sizeof(expected_lparen) / sizeof(TokenKind));
+    
+    // Parse parameters
+    ASTNode *parameters = NULL;
+    ASTNode *param_tail = NULL;
+    
+    if (parse_peek(state)->type != RIGHT_PAREN)
+    {
+        parameters = parse_identifier(state);
+        param_tail = parameters;
+        
+        while (parse_peek(state)->type == COMMA)
+        {
+            parse_consume(state, NULL, 0); // Consume COMMA
+            param_tail->next = parse_identifier(state);
+            param_tail = param_tail->next;
+        }
+    }
+    
+    // Expect ')'
+    TokenKind expected_rparen[] = {RIGHT_PAREN};
+    parse_consume(state, expected_rparen, sizeof(expected_rparen) / sizeof(TokenKind));
+    
+    // Parse function body (block statement)
+    ASTNode *body = parse_statement(state);
+    
+    // Create function declaration node
+    ASTNode *node = create_empty_ast_node();
+    node->type = NODE_FUNCTION_DECLARATION;
+    node->data.function_declaration.identifier = identifier_node;
+    node->data.function_declaration.parameters = parameters;
+    node->data.function_declaration.body = body;
+    
+    return node;
+}
+
+ASTNode *parse_function_call(ParserState *state)
+{
+    // Parse function name
+    ASTNode *identifier_node = parse_identifier(state);
+    
+    // Expect '('
+    TokenKind expected_lparen[] = {LEFT_PAREN};
+    parse_consume(state, expected_lparen, sizeof(expected_lparen) / sizeof(TokenKind));
+    
+    // Parse arguments
+    ASTNode *arguments = NULL;
+    ASTNode *arg_tail = NULL;
+    
+    if (parse_peek(state)->type != RIGHT_PAREN)
+    {
+        arguments = parse_expression(state);
+        arg_tail = arguments;
+        
+        while (parse_peek(state)->type == COMMA)
+        {
+            parse_consume(state, NULL, 0); // Consume COMMA
+            arg_tail->next = parse_expression(state);
+            arg_tail = arg_tail->next;
+        }
+    }
+    
+    // Expect ')'
+    TokenKind expected_rparen[] = {RIGHT_PAREN};
+    parse_consume(state, expected_rparen, sizeof(expected_rparen) / sizeof(TokenKind));
+    
+    // Create function call node
+    ASTNode *node = create_empty_ast_node();
+    node->type = NODE_FUNCTION_CALL;
+    node->data.function_call.identifier = identifier_node;
+    node->data.function_call.arguments = arguments;
+    
+    return node;
+}
+
+ASTNode *parse_return_statement(ParserState *state)
+{
+    ASTNode *node = create_empty_ast_node();
+    node->type = NODE_RETURN;
+    
+    // Check if there's an expression to return
+    if (parse_peek(state)->type != SEMICOLON)
+    {
+        node->data.return_statement.expression = parse_expression(state);
+    }
+    else
+    {
+        node->data.return_statement.expression = NULL;
+    }
+    
+    return node;
+}
+
 ASTNode *parse_statement(ParserState *state)
 {
     while (parse_peek(state)->type == SEMICOLON)
@@ -451,11 +559,30 @@ ASTNode *parse_statement(ParserState *state)
         node->data.statement.data.expression->next = parse_statement(state);
         return node;
         break;
+    case FUNCTION:
+        node->data.statement.type = FUNCTION_STATEMENT;
+        parse_consume(state, NULL, 0); // Consume FUNCTION.
+        node->data.statement.data.expression = parse_function_declaration(state);
+        return node;
+        break;
+    case RETURN:
+        node->data.statement.type = RETURN_STATEMENT;
+        parse_consume(state, NULL, 0); // Consume RETURN.
+        node->data.statement.data.expression = parse_return_statement(state);
+        parse_consume(state, expected_semi, sizeof(expected_semi) / sizeof(TokenKind)); // Consume SEMICOLON.
+        return node;
+        break;
     case IDENTIFIER:
         if (parse_peek_next(state)->type == IDENTIFIER)
         {
             node->data.statement.type = DECLARATION;
             node->data.statement.data.declaration = parse_variable_declaration(state);
+        }
+        else if (parse_peek_next(state)->type == LEFT_PAREN)
+        {
+            // Function call as a statement - treat it as expression statement
+            node->data.statement.type = EXPRESSION_STATEMENT;
+            node->data.statement.data.expression = parse_function_call(state);
         }
         else
         {
@@ -533,7 +660,7 @@ ASTNode *parser(ParserState *state)
 
 ASTNode *create_empty_ast_node()
 {
-    ASTNode *node = (ASTNode *)malloc(sizeof(ASTNode));
+    ASTNode *node = (ASTNode *)calloc(1, sizeof(ASTNode));
     if (node == NULL)
     {
         fprintf(stderr, "Failed to allocate memory for ASTNode.\n");

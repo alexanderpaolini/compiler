@@ -1,0 +1,19 @@
+# Test function declarations and calls
+function add(x, y) {
+    return x + y;
+}
+
+function multiply(a, b) {
+    return a * b;
+}
+
+function greet() {
+    print "Hello from function!";
+}
+
+# Test function calls
+int result1 = add(5, 3);
+int result2 = multiply(4, 6);
+greet();
+print result1;
+print result2;
