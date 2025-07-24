@@ -381,6 +381,9 @@ Variable *visit_expression(Environment *env, ASTNode *node)
     case NODE_UNARY_OP:
         return visit_unary_op(env, node);
         break;
+    case NODE_FUNCTION_CALL:
+        return visit_function_call(env, node);
+        break;
     default:
         fprintf(stderr, "How did we get here (1)?\n");
         exit(EXIT_FAILURE);
@@ -465,6 +468,15 @@ int visit_statement(Environment *env, ASTNode *node)
     case IF_STATEMENT:
         visit_if_statement(env, node->data.statement.data.expression);
         break;
+    case FUNCTION_STATEMENT:
+        visit_function_declaration(env, node->data.statement.data.expression);
+        break;
+    case RETURN_STATEMENT:
+        visit_return_statement(env, node->data.statement.data.expression);
+        break;
+    case EXPRESSION_STATEMENT:
+        visit_expression(env, node->data.statement.data.expression);
+        break;
     default:
         fprintf(stderr, "Unknown statement type %d!\n", node->data.statement.type);
         return FAILURE;
@@ -536,6 +548,44 @@ int visit_print_statement(Environment *env, ASTNode *node)
         // SHOULD NOT HAPPEN?
     }
     return SUCCESS;
+}
+
+int visit_function_declaration(Environment *env, ASTNode *node)
+{
+    // For now, just store the function name - implement full storage later
+    printf("Function declaration: %s\n", node->data.function_declaration.identifier->data.identifier_value);
+    return SUCCESS;
+}
+
+int visit_return_statement(Environment *env, ASTNode *node)
+{
+    // For now, just print the return value - implement proper return handling later
+    if (node->data.return_statement.expression)
+    {
+        Variable *result = visit_expression(env, node->data.return_statement.expression);
+        printf("Return value: %d\n", *(int*)result->data);
+    }
+    else
+    {
+        printf("Return (void)\n");
+    }
+    return SUCCESS;
+}
+
+Variable *visit_function_call(Environment *env, ASTNode *node)
+{
+    // For now, just return a dummy value - implement proper function calling later
+    printf("Function call: %s\n", node->data.function_call.identifier->data.identifier_value);
+    
+    Variable *res = (Variable *)malloc(sizeof(Variable));
+    res->type = "int";
+    res->name = "dummy";
+    
+    int *value = (int *)malloc(sizeof(int));
+    *value = 42; // dummy return value
+    res->data = value;
+    
+    return res;
 }
 
 int visit_eof(Environment *env, ASTNode *node)

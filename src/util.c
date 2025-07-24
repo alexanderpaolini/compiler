@@ -232,6 +232,10 @@ void print_ast(ASTNode *node)
             print_ast(node->data.statement.data.expression);
             printf(";");
             break;
+        case EXPRESSION_STATEMENT:
+            print_ast(node->data.statement.data.expression);
+            printf(";");
+            break;
         default:
             printf("Unknown statement type %d", node->data.statement.type);
             break;

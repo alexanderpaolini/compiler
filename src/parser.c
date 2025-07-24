@@ -543,7 +543,8 @@ ASTNode *parse_statement(ParserState *state)
         }
         else if (parse_peek_next(state)->type == LEFT_PAREN)
         {
-            // Function call as a statement
+            // Function call as a statement - treat it as expression statement
+            node->data.statement.type = EXPRESSION_STATEMENT;
             node->data.statement.data.expression = parse_function_call(state);
         }
         else

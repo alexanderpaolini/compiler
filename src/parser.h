@@ -85,6 +85,7 @@ typedef enum
     IF_STATEMENT,
     FUNCTION_STATEMENT,
     RETURN_STATEMENT,
+    EXPRESSION_STATEMENT,
 } StatementType;
 
 typedef enum BinaryOp
