@@ -493,7 +493,7 @@ ASTNode *parser(ParserState *state)
 
 ASTNode *create_empty_ast_node()
 {
-    ASTNode *node = (ASTNode *)malloc(sizeof(ASTNode));
+    ASTNode *node = (ASTNode *)calloc(1, sizeof(ASTNode));
     if (node == NULL)
     {
         fprintf(stderr, "Failed to allocate memory for ASTNode.\n");
